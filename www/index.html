@@ -195,7 +195,7 @@
       <button onclick="requestGalleryPermission()" class="shrink-0 px-3 py-1.5 rounded-lg bg-amber text-ink text-xs font-black">Izinkan</button>
     </div>
 
-    <div class="flex items-center gap-2 mb-4">
+    <div class="flex items-center gap-2 mb-3">
       <span class="text-xs font-semibold text-dim">Cek tiap</span>
       <select id="syncInterval" onchange="updateSyncInterval(this.value)" class="bg-panel2 border border-line rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none">
         <option value="15">15 menit</option>
@@ -204,6 +204,14 @@
         <option value="180">3 jam</option>
       </select>
     </div>
+
+    <button onclick="openFolderPicker()" class="w-full mb-4 flex items-center justify-between px-3.5 py-3 rounded-xl bg-panel2 border border-line text-left hover:border-mint/50 transition">
+      <div class="min-w-0">
+        <div class="text-[10px] font-bold uppercase tracking-wide text-dim">Folder yang disinkron</div>
+        <div id="selectedFoldersLabel" class="text-sm font-bold truncate mt-0.5">Semua folder</div>
+      </div>
+      <span class="text-dim shrink-0 ml-2">›</span>
+    </button>
 
     <div class="grid grid-cols-2 gap-3 text-center mb-4">
       <div class="rounded-xl bg-panel2 border border-line p-3">
@@ -238,6 +246,28 @@
   </section>
 
 </main>
+
+
+<!-- FOLDER PICKER MODAL -->
+<div id="folderModal" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm">
+  <div class="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-panel border border-line p-6 shadow-2xl animate-fadeUp max-h-[85vh] flex flex-col">
+
+    <div class="flex items-center justify-between mb-1 shrink-0">
+      <h3 class="font-display font-extrabold text-xl">Pilih Folder</h3>
+      <button onclick="closeFolderPicker()" class="w-9 h-9 rounded-full bg-panel2 hover:bg-line flex items-center justify-center">✕</button>
+    </div>
+    <p class="text-xs text-dim mb-4 shrink-0">Kosongkan semua centang untuk sinkron dari semua folder.</p>
+
+    <div id="folderList" class="space-y-2 overflow-y-auto flex-1 min-h-[100px]">
+      <div class="py-10 text-center text-dim text-sm">Memuat folder...</div>
+    </div>
+
+    <button onclick="saveFolderSelection()" class="mt-4 w-full py-3.5 rounded-2xl bg-mint text-ink font-black shadow-lg shadow-mint/20 active:scale-[.98] transition shrink-0">
+      Simpan Pilihan
+    </button>
+
+  </div>
+</div>
 
 
 <!-- SETTINGS MODAL -->

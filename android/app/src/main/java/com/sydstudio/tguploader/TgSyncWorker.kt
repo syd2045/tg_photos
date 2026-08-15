@@ -2,6 +2,7 @@ package com.sydstudio.tguploader
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.ContentUris
 import android.content.Context
 import android.os.Build
 import android.provider.MediaStore
@@ -20,9 +21,16 @@ class TgSyncWorker(context: Context, params: WorkerParameters) : Worker(context,
         const val UNIQUE_NAME = "tg_auto_sync_work"
         const val CHANNEL_ID = "tg_sync_channel"
         private const val MAX_PER_RUN = 15
+        private const val MAX_TRACKED_IDS = 4000
+
+        // Prevents the periodic auto-sync and the manual "Sync Sekarang"
+        // button from ever running at the same time. Without this, both
+        // could read the same "not yet uploaded" state and send the same
+        // photos twice — this was the spam bug.
+        private val SYNC_LOCK = Any()
     }
 
-    override fun doWork(): Result {
+    override fun doWork(): Result = synchronized(SYNC_LOCK) {
         val prefs = applicationContext.getSharedPreferences(PREFS, 0)
 
         val token = prefs.getString("token", "") ?: ""
@@ -33,17 +41,34 @@ class TgSyncWorker(context: Context, params: WorkerParameters) : Worker(context,
         val lastSyncTs = prefs.getLong("last_sync_ts", System.currentTimeMillis())
         val lastSyncSeconds = lastSyncTs / 1000
 
+        // Folder filter — empty/missing set means "semua folder" (sync everything).
+        val selectedBuckets = prefs.getStringSet("sync_bucket_ids", null)
+
+        // Already-uploaded MediaStore IDs, kept as a hard guardrail against
+        // duplicates even if the time-cursor logic ever races.
+        val uploadedIds = HashSet(prefs.getStringSet("uploaded_ids", emptySet()) ?: emptySet())
+
         val resolver = applicationContext.contentResolver
         val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
         val projection = arrayOf(
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DISPLAY_NAME,
-            MediaStore.Images.Media.DATE_ADDED
+            MediaStore.Images.Media.DATE_ADDED,
+            MediaStore.Images.Media.BUCKET_ID
         )
 
-        val selection = "${MediaStore.Images.Media.DATE_ADDED} > ?"
-        val args = arrayOf(lastSyncSeconds.toString())
+        val selectionParts = mutableListOf("${MediaStore.Images.Media.DATE_ADDED} > ?")
+        val argsList = mutableListOf(lastSyncSeconds.toString())
+
+        if (!selectedBuckets.isNullOrEmpty()) {
+            val placeholders = selectedBuckets.joinToString(",") { "?" }
+            selectionParts.add("${MediaStore.Images.Media.BUCKET_ID} IN ($placeholders)")
+            argsList.addAll(selectedBuckets)
+        }
+
+        val selection = selectionParts.joinToString(" AND ")
+        val args = argsList.toTypedArray()
         val sort = "${MediaStore.Images.Media.DATE_ADDED} ASC"
 
         var newestSeconds = lastSyncSeconds
@@ -58,10 +83,16 @@ class TgSyncWorker(context: Context, params: WorkerParameters) : Worker(context,
 
                 while (cursor.moveToNext() && syncedCount < MAX_PER_RUN) {
                     val id = cursor.getLong(idCol)
+                    val idStr = id.toString()
                     val name = cursor.getString(nameCol) ?: "photo_$id.jpg"
                     val dateAdded = cursor.getLong(dateCol)
 
-                    val uri = android.content.ContentUris.withAppendedId(collection, id)
+                    if (dateAdded > newestSeconds) newestSeconds = dateAdded
+
+                    // Already sent before — skip silently, no re-upload.
+                    if (uploadedIds.contains(idStr)) continue
+
+                    val uri = ContentUris.withAppendedId(collection, id)
 
                     val ok = try {
                         resolver.openInputStream(uri)?.use { input ->
@@ -74,7 +105,7 @@ class TgSyncWorker(context: Context, params: WorkerParameters) : Worker(context,
                     if (ok) {
                         syncedCount++
                         lastName = name
-                        if (dateAdded > newestSeconds) newestSeconds = dateAdded
+                        uploadedIds.add(idStr)
                     }
                 }
             }
@@ -82,9 +113,18 @@ class TgSyncWorker(context: Context, params: WorkerParameters) : Worker(context,
             return Result.failure()
         }
 
+        // Keep the tracked-id set from growing forever.
+        val trimmedIds = if (uploadedIds.size > MAX_TRACKED_IDS) {
+            uploadedIds.toList().takeLast(MAX_TRACKED_IDS).toSet()
+        } else uploadedIds
+
+        prefs.edit()
+            .putLong("last_sync_ts", newestSeconds * 1000)
+            .putStringSet("uploaded_ids", trimmedIds)
+            .apply()
+
         if (syncedCount > 0) {
             prefs.edit()
-                .putLong("last_sync_ts", newestSeconds * 1000)
                 .putString("last_synced_name", lastName)
                 .putInt("total_synced", prefs.getInt("total_synced", 0) + syncedCount)
                 .apply()

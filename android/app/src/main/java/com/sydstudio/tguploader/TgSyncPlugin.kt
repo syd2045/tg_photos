@@ -137,6 +137,86 @@ class TgSyncPlugin : Plugin() {
         result.put("lastSyncedName", p.getString("last_synced_name", ""))
         result.put("totalSynced", p.getInt("total_synced", 0))
         result.put("hasPermission", photosGranted())
+
+        val selected = p.getStringSet("sync_bucket_ids", null)
+        val selectedArray = com.getcapacitor.JSArray()
+        selected?.forEach { selectedArray.put(it) }
+        result.put("selectedFolderIds", selectedArray)
+        result.put("selectedFolderNames", p.getString("sync_bucket_names", ""))
+
         call.resolve(result)
+    }
+
+    @PluginMethod
+    fun listFolders(call: PluginCall) {
+        if (!photosGranted()) {
+            call.reject("Izin galeri belum diberikan")
+            return
+        }
+
+        val resolver = context.contentResolver
+        val collection = android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+
+        val projection = arrayOf(
+            android.provider.MediaStore.Images.Media.BUCKET_ID,
+            android.provider.MediaStore.Images.Media.BUCKET_DISPLAY_NAME
+        )
+
+        val counts = LinkedHashMap<String, Pair<String, Int>>()
+
+        resolver.query(collection, projection, null, null, null)?.use { cursor ->
+            val idCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.BUCKET_ID)
+            val nameCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
+
+            while (cursor.moveToNext()) {
+                val id = cursor.getString(idCol) ?: continue
+                val name = cursor.getString(nameCol) ?: "Tanpa nama"
+                val existing = counts[id]
+                counts[id] = name to ((existing?.second ?: 0) + 1)
+            }
+        }
+
+        val folders = com.getcapacitor.JSArray()
+        counts.entries
+            .sortedByDescending { it.value.second }
+            .forEach { (id, pair) ->
+                val obj = JSObject()
+                obj.put("id", id)
+                obj.put("name", pair.first)
+                obj.put("count", pair.second)
+                folders.put(obj)
+            }
+
+        val result = JSObject()
+        result.put("folders", folders)
+        call.resolve(result)
+    }
+
+    @PluginMethod
+    fun setSyncFolders(call: PluginCall) {
+        val ids = call.getArray("ids")
+        val names = call.getArray("names")
+
+        val idSet = HashSet<String>()
+        if (ids != null) {
+            for (i in 0 until ids.length()) idSet.add(ids.getString(i))
+        }
+
+        val nameList = mutableListOf<String>()
+        if (names != null) {
+            for (i in 0 until names.length()) nameList.add(names.getString(i))
+        }
+
+        val editor = prefs().edit()
+        if (idSet.isEmpty()) {
+            editor.remove("sync_bucket_ids")
+            editor.remove("sync_bucket_names")
+        } else {
+            editor.putStringSet("sync_bucket_ids", idSet)
+            editor.putString("sync_bucket_names", nameList.joinToString(", "))
+        }
+        editor.apply()
+
+        call.resolve()
     }
 }

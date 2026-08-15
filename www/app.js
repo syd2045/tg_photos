@@ -508,9 +508,105 @@ async function refreshSyncStatus() {
 
     document.getElementById('permissionRow').classList.toggle('hidden', !!status.hasPermission);
 
+    const names = status.selectedFolderNames;
+    document.getElementById('selectedFoldersLabel').textContent =
+      names && names.length ? names : 'Semua folder';
+
   } catch (err) {
     console.error('sync status error', err);
   }
+}
+
+
+// ========================================
+// FOLDER PICKER
+// ========================================
+
+let folderPickerSelection = new Set();
+let availableFolders = [];
+
+async function openFolderPicker() {
+  if (!isNative()) return;
+
+  const modal = document.getElementById('folderModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  const perm = await window.Capacitor.Plugins.TgSync.checkPermission();
+  if (!perm.granted) {
+    const res = await window.Capacitor.Plugins.TgSync.requestStoragePermission();
+    if (!res.granted) {
+      showToast('Izin akses galeri diperlukan untuk melihat folder', true);
+      closeFolderPicker();
+      return;
+    }
+  }
+
+  const list = document.getElementById('folderList');
+  list.innerHTML = `<div class="py-10 text-center text-dim text-sm">Memuat folder...</div>`;
+
+  try {
+    const status = await window.Capacitor.Plugins.TgSync.getStatus();
+    folderPickerSelection = new Set(status.selectedFolderIds || []);
+
+    const res = await window.Capacitor.Plugins.TgSync.listFolders();
+    availableFolders = res.folders || [];
+
+    renderFolderList();
+  } catch (err) {
+    list.innerHTML = `<div class="py-10 text-center text-coral text-sm">Gagal memuat folder</div>`;
+  }
+}
+
+function closeFolderPicker() {
+  const modal = document.getElementById('folderModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+function renderFolderList() {
+  const list = document.getElementById('folderList');
+
+  if (!availableFolders.length) {
+    list.innerHTML = `<div class="py-10 text-center text-dim text-sm">Tidak ada folder foto ditemukan.</div>`;
+    return;
+  }
+
+  list.innerHTML = availableFolders.map(f => {
+    const checked = folderPickerSelection.has(f.id);
+    return `
+      <label class="flex items-center gap-3 px-3.5 py-3 rounded-xl bg-panel2 border ${checked ? 'border-mint' : 'border-line'} cursor-pointer transition">
+        <input
+          type="checkbox"
+          ${checked ? 'checked' : ''}
+          onchange="toggleFolderSelection('${f.id}', this.checked)"
+          class="w-5 h-5 accent-mint shrink-0"
+        >
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-bold truncate">${escapeHtml(f.name)}</div>
+          <div class="text-[11px] text-dim">${f.count} foto</div>
+        </div>
+      </label>
+    `;
+  }).join('');
+}
+
+function toggleFolderSelection(id, checked) {
+  if (checked) folderPickerSelection.add(id);
+  else folderPickerSelection.delete(id);
+}
+
+async function saveFolderSelection() {
+  const ids = Array.from(folderPickerSelection);
+  const names = availableFolders
+    .filter(f => folderPickerSelection.has(f.id))
+    .map(f => f.name);
+
+  await window.Capacitor.Plugins.TgSync.setSyncFolders({ ids, names });
+
+  showToast(ids.length ? `${ids.length} folder dipilih untuk auto-sync` : 'Auto-sync akan pakai semua folder');
+  closeFolderPicker();
+  refreshSyncStatus();
 }
 
 
