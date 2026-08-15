@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#12141A">
+<title>Kirim ke Telegram</title>
+
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          ink: '#12141A',
+          panel: '#1A1D25',
+          panel2: '#20242E',
+          line: '#2B303B',
+          amber: '#FFB454',
+          mint: '#5FD3A0',
+          coral: '#FF6B6B',
+          dim: '#8A93A3'
+        },
+        fontFamily: {
+          display: ['Sora', 'sans-serif'],
+          body: ['Inter', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace']
+        },
+        keyframes: {
+          launch: {
+            '0%':   { transform: 'translate(0,0) rotate(0deg) scale(1)', opacity: 1 },
+            '60%':  { transform: 'translate(40px,-60px) rotate(18deg) scale(.9)', opacity: .7 },
+            '100%': { transform: 'translate(90px,-140px) rotate(24deg) scale(.4)', opacity: 0 }
+          },
+          pulseRing: {
+            '0%':   { boxShadow: '0 0 0 0 rgba(255,180,84,.45)' },
+            '100%': { boxShadow: '0 0 0 14px rgba(255,180,84,0)' }
+          },
+          fadeUp: {
+            from: { opacity: 0, transform: 'translateY(8px)' },
+            to:   { opacity: 1, transform: 'translateY(0)' }
+          }
+        },
+        animation: {
+          launch: 'launch .55s ease-in forwards',
+          pulseRing: 'pulseRing 1.6s ease-out infinite',
+          fadeUp: 'fadeUp .3s ease-out'
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  html { -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Inter', sans-serif; }
+  ::-webkit-scrollbar { height: 6px; width: 6px; }
+  ::-webkit-scrollbar-thumb { background: #2B303B; border-radius: 99px; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+</style>
+
+<script src="app.js" defer></script>
+</head>
+
+<body class="bg-ink text-white font-body min-h-screen pb-10">
+
+<!-- HEADER -->
+<header class="sticky top-0 z-30 border-b border-line bg-ink/90 backdrop-blur-xl">
+  <div class="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber to-orange-400 flex items-center justify-center text-lg shadow-lg shadow-amber/20">
+        🛫
+      </div>
+      <div>
+        <h1 class="font-display font-extrabold text-[15px] leading-tight tracking-tight">Kirim ke Telegram</h1>
+        <p id="connStatus" class="text-[11px] font-mono text-dim leading-tight mt-0.5">Belum terhubung</p>
+      </div>
+    </div>
+
+    <button onclick="openSettings()" class="w-10 h-10 rounded-xl bg-panel border border-line flex items-center justify-center active:scale-90 transition hover:border-amber/40" title="Pengaturan">
+      ⚙️
+    </button>
+
+  </div>
+</header>
+
+
+<main class="max-w-2xl mx-auto px-4 py-5 space-y-5">
+
+  <!-- PICKER -->
+  <section class="rounded-3xl bg-panel border border-line p-5">
+
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <div class="text-[10px] font-bold uppercase tracking-widest text-amber mb-1">Sumber Gambar</div>
+        <h2 class="font-display font-bold text-lg">Ambil dari HP</h2>
+      </div>
+      <span id="pickCount" class="hidden text-xs font-mono font-bold bg-amber/10 text-amber px-2.5 py-1 rounded-full"></span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+
+      <label class="cursor-pointer rounded-2xl border-2 border-dashed border-line hover:border-amber/60 hover:bg-amber/5 transition p-5 flex flex-col items-center justify-center text-center gap-2">
+        <span class="text-3xl">🖼️</span>
+        <span class="text-sm font-bold">Pilih Foto</span>
+        <span class="text-[11px] text-dim">Galeri / multi pilih</span>
+        <input id="filePicker" type="file" accept="image/*" multiple class="hidden" onchange="handleFilesPicked(this.files)">
+      </label>
+
+      <label class="cursor-pointer rounded-2xl border-2 border-dashed border-line hover:border-amber/60 hover:bg-amber/5 transition p-5 flex flex-col items-center justify-center text-center gap-2">
+        <span class="text-3xl">📂</span>
+        <span class="text-sm font-bold">Pilih Folder</span>
+        <span class="text-[11px] text-dim">Ambil semua gambar</span>
+        <input id="folderPicker" type="file" webkitdirectory multiple class="hidden" onchange="handleFilesPicked(this.files)">
+      </label>
+
+    </div>
+
+    <p class="text-[11px] text-dim mt-3 leading-relaxed">
+      Browser hanya bisa membaca file yang kamu pilih sendiri lewat dialog ini — bukan menjelajah seluruh penyimpanan HP secara bebas. Ini batasan keamanan dari sistem operasi/browser, bukan dari aplikasi ini.
+    </p>
+
+  </section>
+
+
+  <!-- SELECTED GRID -->
+  <section id="selectedSection" class="hidden rounded-3xl bg-panel border border-line p-5">
+
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <div class="text-[10px] font-bold uppercase tracking-widest text-amber mb-1">Siap Dikirim</div>
+        <h2 class="font-display font-bold text-lg" id="selectedTitle">0 gambar</h2>
+      </div>
+      <button onclick="clearSelected()" class="text-xs font-bold text-coral hover:underline">Kosongkan</button>
+    </div>
+
+    <div id="selectedGrid" class="grid grid-cols-3 sm:grid-cols-4 gap-2.5"></div>
+
+    <div class="mt-4 flex items-center gap-2">
+      <label class="flex items-center gap-2 text-xs font-semibold text-dim">
+        <select id="uploadMode" class="bg-panel2 border border-line rounded-lg px-2 py-1.5 text-xs font-semibold text-white outline-none">
+          <option value="photo">Kirim sebagai Foto (dikompres)</option>
+          <option value="document">Kirim sebagai Dokumen (kualitas asli)</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="overallProgressWrap" class="hidden mt-4">
+      <div class="flex justify-between text-[11px] font-mono text-dim mb-1">
+        <span id="overallProgressLabel">Mengirim...</span>
+        <span id="overallProgressPct">0%</span>
+      </div>
+      <div class="h-2 rounded-full bg-panel2 overflow-hidden">
+        <div id="overallProgressBar" class="h-full bg-gradient-to-r from-amber to-orange-400 rounded-full transition-all duration-300" style="width:0%"></div>
+      </div>
+    </div>
+
+    <button id="uploadBtn" onclick="uploadAll()" class="mt-4 w-full py-3.5 rounded-2xl bg-amber text-ink font-black shadow-lg shadow-amber/20 active:scale-[.98] transition disabled:opacity-40 disabled:pointer-events-none">
+      Kirim ke Telegram
+    </button>
+
+  </section>
+
+
+  <!-- AUTO SYNC (native app only) -->
+  <section id="autoSyncSection" class="hidden rounded-3xl bg-panel border border-line p-5">
+
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <div class="text-[10px] font-bold uppercase tracking-widest text-mint mb-1">Latar Belakang</div>
+        <h2 class="font-display font-bold text-lg">Auto-Sync Galeri</h2>
+      </div>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" id="autoSyncToggle" class="sr-only peer" onchange="toggleAutoSync(this.checked)">
+        <div class="w-11 h-6 bg-panel2 border border-line rounded-full peer-checked:bg-mint transition"></div>
+        <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-5"></div>
+      </label>
+    </div>
+
+    <p class="text-[11px] text-dim leading-relaxed mb-4">
+      Kalau aktif, app akan otomatis memindai foto baru di galeri HP dan mengirimnya ke Telegram walau app ditutup — tidak perlu buka app tiap kali motret.
+    </p>
+
+    <div id="permissionRow" class="hidden mb-4 p-3 rounded-xl bg-amber/10 border border-amber/30 flex items-center justify-between gap-3">
+      <span class="text-xs font-semibold text-amber">Izin akses galeri diperlukan</span>
+      <button onclick="requestGalleryPermission()" class="shrink-0 px-3 py-1.5 rounded-lg bg-amber text-ink text-xs font-black">Izinkan</button>
+    </div>
+
+    <div class="flex items-center gap-2 mb-4">
+      <span class="text-xs font-semibold text-dim">Cek tiap</span>
+      <select id="syncInterval" onchange="updateSyncInterval(this.value)" class="bg-panel2 border border-line rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none">
+        <option value="15">15 menit</option>
+        <option value="30">30 menit</option>
+        <option value="60">1 jam</option>
+        <option value="180">3 jam</option>
+      </select>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 text-center mb-4">
+      <div class="rounded-xl bg-panel2 border border-line p-3">
+        <div id="statTotalSynced" class="font-display font-extrabold text-xl">0</div>
+        <div class="text-[10px] text-dim uppercase tracking-wide mt-0.5">Foto tersinkron</div>
+      </div>
+      <div class="rounded-xl bg-panel2 border border-line p-3">
+        <div id="statLastSync" class="font-display font-extrabold text-xl">—</div>
+        <div class="text-[10px] text-dim uppercase tracking-wide mt-0.5">Terakhir sync</div>
+      </div>
+    </div>
+
+    <button onclick="syncNow()" class="w-full py-3 rounded-xl bg-panel2 border border-line font-bold text-sm hover:border-mint/50 transition">
+      🔄 Sync Sekarang
+    </button>
+
+  </section>
+
+
+  <!-- HISTORY -->
+  <section class="rounded-3xl bg-panel border border-line overflow-hidden">
+    <div class="p-5 border-b border-line flex items-center justify-between">
+      <div>
+        <div class="text-[10px] font-bold uppercase tracking-widest text-amber mb-1">Riwayat</div>
+        <h2 class="font-display font-bold text-lg">Terkirim Terakhir</h2>
+      </div>
+      <button onclick="clearHistory()" class="text-xs font-bold text-dim hover:text-coral">Hapus</button>
+    </div>
+    <div id="historyList" class="divide-y divide-line max-h-80 overflow-y-auto">
+      <div class="py-10 text-center text-dim text-sm">Belum ada riwayat kirim.</div>
+    </div>
+  </section>
+
+</main>
+
+
+<!-- SETTINGS MODAL -->
+<div id="settingsModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+  <div class="w-full max-w-md rounded-3xl bg-panel border border-line p-6 shadow-2xl animate-fadeUp max-h-[90vh] overflow-y-auto">
+
+    <div class="flex items-center justify-between mb-1">
+      <h3 class="font-display font-extrabold text-xl">Pengaturan</h3>
+      <button onclick="closeSettings()" class="w-9 h-9 rounded-full bg-panel2 hover:bg-line flex items-center justify-center">✕</button>
+    </div>
+    <p class="text-xs text-dim mb-5">Credential disimpan di penyimpanan lokal HP kamu saja (localStorage), tidak dikirim ke server manapun selain langsung ke Telegram.</p>
+
+    <div class="space-y-4">
+
+      <div>
+        <label class="text-xs font-bold text-dim uppercase tracking-wide mb-1.5 block">Bot Token</label>
+        <input id="botToken" type="password" placeholder="123456:ABC-DEF..." class="w-full px-4 py-3 rounded-xl bg-panel2 border border-line outline-none focus:ring-2 focus:ring-amber/60 font-mono text-sm">
+        <p class="text-[11px] text-dim mt-1.5">Dapatkan dari <span class="font-mono text-amber">@BotFather</span> di Telegram → /newbot</p>
+      </div>
+
+      <div>
+        <label class="text-xs font-bold text-dim uppercase tracking-wide mb-1.5 block">Chat ID</label>
+        <div class="flex gap-2">
+          <input id="chatId" type="text" placeholder="cth: 123456789" class="flex-1 min-w-0 px-4 py-3 rounded-xl bg-panel2 border border-line outline-none focus:ring-2 focus:ring-amber/60 font-mono text-sm">
+          <button onclick="detectChatId()" class="shrink-0 px-3.5 rounded-xl bg-panel2 border border-line text-xs font-bold hover:border-amber/50">
+            Deteksi
+          </button>
+        </div>
+        <p class="text-[11px] text-dim mt-1.5">Chat/kirim pesan apa saja ke bot kamu dulu, lalu tekan "Deteksi".</p>
+      </div>
+
+      <div id="chatIdCandidates" class="hidden space-y-1.5"></div>
+
+      <button onclick="testConnection()" class="w-full py-3 rounded-xl bg-panel2 border border-line font-bold text-sm hover:border-amber/50 transition">
+        🔌 Tes Koneksi
+      </button>
+
+      <button onclick="saveSettings()" class="w-full py-3.5 rounded-2xl bg-amber text-ink font-black shadow-lg shadow-amber/20 active:scale-[.98] transition">
+        Simpan Pengaturan
+      </button>
+
+    </div>
+
+  </div>
+</div>
+
+
+<!-- TOAST -->
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[70] hidden max-w-[90vw] px-5 py-3 rounded-2xl bg-panel2 border border-line text-white text-sm font-semibold shadow-2xl"></div>
+
+</body>
+</html>

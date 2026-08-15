@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Kirim ke Telegram</string>
+    <string name="title_activity_main">Kirim ke Telegram</string>
+    <string name="package_name">com.sydstudio.tguploader</string>
+    <string name="custom_url_scheme">com.sydstudio.tguploader</string>
+</resources>
